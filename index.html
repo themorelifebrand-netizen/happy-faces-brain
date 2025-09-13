@@ -1,75 +1,204 @@
-<!-- HTML Embed: paste everything -->
-<div id="stage" style="min-height:560px;height:60vh;max-height:760px;border:1px dashed #cfd6e4;border-radius:12px;position:relative;background:transparent;overflow:hidden">
-  <div id="size" style="position:absolute;top:6px;right:6px;background:#fff;border:1px solid #cfd6e4;border-radius:8px;padding:2px 6px;font-size:11px;color:#2a3550;opacity:.85">-- × --</div>
-  <canvas id="c"></canvas>
-</div>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Happy Faces — Flare Brain 3D</title>
 
-<script type="module">
-  import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.161.0/build/three.module.js";
-  import { OrbitControls } from "https://cdn.jsdelivr.net/npm/three@0.161.0/examples/jsm/controls/OrbitControls.js";
-
-  const stage = document.getElementById('stage');
-  const badge = document.getElementById('size');
-  const renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('c'), antialias:true, alpha:true });
-  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
-
-  const camera = new THREE.PerspectiveCamera(42, 1, 0.1, 100);
-  camera.position.set(0, 0.7, 3.8);
-  const scene = new THREE.Scene();
-  scene.add(new THREE.AmbientLight(0xffffff, 0.55));
-  const key = new THREE.DirectionalLight(0xffffff, 1.0); key.position.set(3,4,5); scene.add(key);
-
-  const controls = new OrbitControls(camera, renderer.domElement);
-  controls.enableDamping = true; controls.enablePan = false;
-
-  function size(){
-    const w = Math.max(stage.clientWidth, stage.offsetWidth, 800);
-    const h = Math.max(stage.clientHeight, stage.offsetHeight, 560);
-    renderer.setSize(w, h, false);
-    camera.aspect = w / h; camera.updateProjectionMatrix();
-    badge.textContent = `${Math.round(w)}×${Math.round(h)}`;
+<link href="https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#1a2333; --muted:#5a6785; --stroke:#cfd6e4; --panel:#ffffffcc;
+    --flare:#ff4d4d; --cortex:#cfe0ff; --deep:#9ad0ff; --highlight:#ffd166;
   }
-  size(); addEventListener('resize', size);
-  let tries=0;(function poll(){ if((stage.clientWidth>0&&stage.clientHeight>0)||tries>40) return size(); tries++; setTimeout(poll,100); })();
+  html,body{height:100%;background:transparent}
+  body{margin:0;padding:12px;color:var(--ink);font-family:"Nunito Sans",system-ui,-apple-system,Segoe UI,Roboto,Arial}
+  header{max-width:1080px;margin:0 auto 8px}
+  h1{margin:0;color:var(--flare);font-weight:700;font-size:28px}
+  .sub{margin:4px 0 0 0;font-size:14px;color:var(--muted)}
+  .wrap{max-width:1080px;margin:0 auto;display:grid;gap:12px;grid-template-columns:minmax(360px,680px) 1fr;align-items:start}
+  .stage{position:relative;border:1px dashed var(--stroke);border-radius:16px;min-height:560px;height:60vh;max-height:760px;overflow:hidden;background:transparent}
+  canvas{display:block;width:100%;height:100%}
+  .badge{position:absolute;top:6px;right:6px;background:#fff;border:1px solid var(--stroke);border-radius:8px;padding:2px 6px;font-size:11px;color:#2a3550;opacity:.85}
+  .legend{position:absolute;bottom:8px;left:8px;display:flex;gap:8px;flex-wrap:wrap;background:linear-gradient(180deg,#ffffff60,#ffffff20);padding:6px 8px;border-radius:999px;border:1px solid var(--stroke);backdrop-filter:blur(2px)}
+  .pill{display:inline-flex;align-items:center;gap:6px;padding:4px 8px;background:#fff;border:1px solid var(--stroke);border-radius:999px;font-size:12px;color:#2a3550}
+  .dot{width:10px;height:10px;border-radius:999px}
+  .panel{position:sticky;top:8px;border:1px solid var(--stroke);border-radius:16px;padding:14px 16px;background:var(--panel);backdrop-filter:blur(2px);max-height:80vh;overflow:auto}
+  .panel h2{margin:0 0 6px;color:var(--flare);font-weight:700;font-size:18px}
+  .panel .lead{margin:0 0 10px 0;color:#2a3550;font-weight:600}
+  .panel p{margin:6px 0;line-height:1.5;color:#39445c}
+  .panel .muted{color:var(--muted);font-size:12px}
+  @media (max-width:980px){.wrap{grid-template-columns:1fr}.panel{position:relative;top:auto;max-height:none}}
+  .status{margin:0 0 8px 0;padding:8px 10px;border:1px solid var(--stroke);border-radius:10px;background:#ffffffcc}
+  .ok{color:#2f7a3e;font-weight:600}.warn{color:#a33;font-weight:600}
+</style>
+</head>
+<body>
+  <header>
+    <h1>Flare — Irritation Armor (3D Brain)</h1>
+    <div class="sub">Move your cursor to rotate · Click a part to learn the Flare link</div>
+  </header>
 
-  // Proof-of-life cube
-  const cube = new THREE.Mesh(new THREE.BoxGeometry(0.18,0.18,0.18), new THREE.MeshStandardMaterial({ color:0x7aa2ff, roughness:0.4 }));
-  cube.position.set(-1.6,-0.9,0.0); scene.add(cube);
+  <div class="wrap">
+    <section>
+      <div id="status" class="status">Loading…</div>
+      <div class="stage" id="stage" aria-label="3D brain">
+        <div id="size" class="badge">-- × --</div>
+        <canvas id="c"></canvas>
+        <div class="legend">
+          <span class="pill"><span class="dot" style="background:var(--cortex)"></span> Cortex shell</span>
+          <span class="pill"><span class="dot" style="background:var(--deep)"></span> Deep structures</span>
+          <span class="pill"><span class="dot" style="background:var(--flare)"></span> Neurotransmitters</span>
+        </div>
+      </div>
+    </section>
 
-  // Brain (cartoon shell + nodes)
-  const brain = new THREE.Group(); scene.add(brain);
-  const matCortex = new THREE.MeshStandardMaterial({ color:0xcfe0ff, roughness:0.6 });
-  const matWire   = new THREE.MeshBasicMaterial({ color:0x6f98ff, wireframe:true, transparent:true, opacity:0.22 });
-  const matDeep   = new THREE.MeshStandardMaterial({ color:0x9ad0ff, roughness:0.35 });
-  const cortexGeo = new THREE.SphereGeometry(1.08,64,64);
-  const cortex = new THREE.Mesh(cortexGeo, matCortex); cortex.scale.set(1.18,0.98,1.45); brain.add(cortex);
-  const cortexWire = new THREE.Mesh(cortexGeo, matWire); cortexWire.scale.copy(cortex.scale); brain.add(cortexWire);
+    <aside class="panel" id="info">
+      <h2>Click a structure</h2>
+      <p class="lead">Flare = your stress system “idling high.” Irritability is an overload signal, not a character flaw.</p>
+      <p class="muted">Tip: long exhale (6–8s) + jaw/shoulder release lowers NE-driven tone.</p>
+    </aside>
+  </div>
 
-  const nodes = [];
-  function node(x,y,z,r,label){
-    const m = new THREE.Mesh(new THREE.SphereGeometry(r,24,24), matDeep);
-    m.position.set(x,y,z); m.userData = { name: label }; brain.add(m); nodes.push(m);
-  }
-  node(-0.45,-0.05,0.1,0.14,'Amygdala (L)');
-  node( 0.45,-0.05,0.1,0.14,'Amygdala (R)');
-  node( 0.00, 0.25,0.9,0.24,'PFC');
-  node( 0.00, 0.10,0.35,0.18,'ACC');
-  node(-0.35, 0.00,0.25,0.14,'Insula (L)');
-  node( 0.35, 0.00,0.25,0.14,'Insula (R)');
-  node( 0.00,-0.15,0.10,0.15,'Hypothalamus');
-  node( 0.00,-0.05,-0.20,0.20,'Basal Ganglia');
+  <!-- Three.js as ES modules from CDN -->
+  <script type="module">
+    import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.161.0/build/three.module.js";
+    import { OrbitControls } from "https://cdn.jsdelivr.net/npm/three@0.161.0/examples/jsm/controls/OrbitControls.js";
 
-  // Rotate / animate
-  let targetX=0, targetY=0;
-  stage.addEventListener('mousemove', e=>{
-    const r=stage.getBoundingClientRect(); const x=(e.clientX-r.left)/r.width-0.5; const y=(e.clientY-r.top)/r.height-0.5;
-    targetY = x*0.5; targetX = -y*0.3;
-  });
-  function tick(){
-    cube.rotation.y += 0.02; cube.rotation.x += 0.01;
-    brain.rotation.y += 0.002 + (targetY - brain.rotation.y)*0.04;
-    brain.rotation.x += (targetX - brain.rotation.x)*0.04;
-    controls.update(); renderer.render(scene, camera); requestAnimationFrame(tick);
-  }
-  tick();
-</script>
+    const stage = document.getElementById('stage');
+    const badge = document.getElementById('size');
+    const info  = document.getElementById('info');
+    const statusEl = document.getElementById('status');
+
+    // WebGL check
+    const glTest = document.createElement('canvas').getContext('webgl') || document.createElement('canvas').getContext('experimental-webgl');
+    if(!glTest){ statusEl.innerHTML = '<span class="warn">Issue:</span> WebGL not available in this browser/device.'; }
+
+    // Renderer / Camera / Scene
+    const renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('c'), antialias:true, alpha:true });
+    renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+
+    const camera = new THREE.PerspectiveCamera(42, 1, 0.1, 100);
+    camera.position.set(0, 0.7, 3.8);
+
+    const scene = new THREE.Scene();
+    scene.add(new THREE.AmbientLight(0xffffff, 0.55));
+    const key  = new THREE.DirectionalLight(0xffffff, 1.0); key.position.set(3,4,5); scene.add(key);
+    const fill = new THREE.DirectionalLight(0xffffff, 0.6); fill.position.set(-4,2,2); scene.add(fill);
+    const rim  = new THREE.DirectionalLight(0xffffff, 0.45); rim.position.set(0,3,-4); scene.add(rim);
+
+    // Controls
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true; controls.enablePan = false;
+
+    // Sizing
+    function size(){
+      const w = Math.max(stage.clientWidth, stage.offsetWidth, 800);
+      const h = Math.max(stage.clientHeight, stage.offsetHeight, 560);
+      renderer.setSize(w, h, false);
+      camera.aspect = w / h; camera.updateProjectionMatrix();
+      badge.textContent = `${Math.round(w)}×${Math.round(h)}`;
+    }
+    size(); addEventListener('resize', size);
+    let tries=0;(function poll(){ if((stage.clientWidth>0&&stage.clientHeight>0)||tries>40) return size(); tries++; setTimeout(poll,100); })();
+
+    // Materials
+    const matCortex = new THREE.MeshStandardMaterial({ color: getCSS('--cortex'), roughness:0.6, metalness:0.0 });
+    const matWire   = new THREE.MeshBasicMaterial({ color: 0x6f98ff, wireframe:true, transparent:true, opacity:0.22 });
+    const matDeep   = new THREE.MeshStandardMaterial({ color: getCSS('--deep'), roughness:0.35, metalness:0.0 });
+    const matStem   = new THREE.MeshStandardMaterial({ color: 0xbfd7ff, roughness:0.6, metalness:0.0 });
+    const matHi     = new THREE.MeshStandardMaterial({ color: getCSS('--highlight'), roughness:0.2, metalness:0.0 });
+
+    // Brain shell
+    const brain = new THREE.Group(); scene.add(brain);
+    const cortexGeo = new THREE.SphereGeometry(1.08, 64, 64);
+    const cortex = new THREE.Mesh(cortexGeo, matCortex); cortex.scale.set(1.18, 0.98, 1.45); brain.add(cortex);
+    const cortexWire = new THREE.Mesh(cortexGeo, matWire); cortexWire.scale.copy(cortex.scale); brain.add(cortexWire);
+    cortex.userData = {
+      name: 'Cortex (shell)',
+      lead: 'Top-down control & interpretation.',
+      text: ['Flare = bottom-up alarms outrun top-down regulation.']
+    };
+
+    // Brainstem
+    const stem = new THREE.Mesh(new THREE.CapsuleGeometry(0.24, 0.9, 8, 16), matStem);
+    stem.position.set(0, -0.9, -0.2); stem.rotation.x = Math.PI*0.1; brain.add(stem);
+    stem.userData = { name:'Brainstem', lead:'Autonomic drive', text:['Sympathetic tone runs hot → irritability & restlessness.'] };
+
+    // Deep nodes
+    const clickable = [];
+    function node(x,y,z,r,label,lead,lines){
+      const m = new THREE.Mesh(new THREE.SphereGeometry(r, 24, 24), matDeep);
+      m.position.set(x,y,z); m.userData = { name:label, lead, text:lines }; brain.add(m); clickable.push(m);
+      return m;
+    }
+    node(-0.45, -0.05, 0.10, 0.14, 'Amygdala (L)', 'Threat salience', ['Fast “something’s off” → NE surge → heat & clench.']);
+    node( 0.45, -0.05, 0.10, 0.14, 'Amygdala (R)', 'Threat salience', ['Social threat sensitivity → irritability for distance.']);
+    node( 0.00,  0.25, 0.90, 0.24, 'Prefrontal Cortex (PFC)', 'Impulse control', ['Under load, PFC dips → short fuse; breathe + label to re-engage.']);
+    node( 0.00,  0.10, 0.35, 0.18, 'Anterior Cingulate (ACC)', 'Conflict monitor', ['Flags demand > bandwidth → tension rises.']);
+    node(-0.35,  0.00, 0.25, 0.14, 'Insula (L)', 'Interoception', ['Reads heat/tightness → Flare feels “in the body.”']);
+    node( 0.35,  0.00, 0.25, 0.14, 'Insula (R)', 'Interoception', ['Body cues feel loud; pressure + slow exhale recalibrate.']);
+    node( 0.00, -0.15, 0.10, 0.15, 'Hypothalamus (HPA)', 'Hormone hub', ['CRH→ACTH→Cortisol; long loops = fatigue/irritability.']);
+    node( 0.00, -0.05,-0.20, 0.20, 'Basal Ganglia', 'Motor gating', ['High NE/Glut → “idling high” tone → jaw/shoulder clench.']);
+
+    // NT “fireflies”
+    function nt(label, x,y,z, color, lines){
+      const g = new THREE.IcosahedronGeometry(0.09, 1);
+      const m = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 0.5, roughness:0.25 }));
+      m.position.set(x,y,z); m.userData = { name:label, lead:'Neurotransmitter role in Flare', text:lines };
+      brain.add(m); clickable.push(m);
+    }
+    nt('Norepinephrine (NE)',  1.0,  0.4,  0.0, 0xff4444, ['Alerting, arousal, tone. High NE = heat + tension.']);
+    nt('Dopamine (DA)',      -1.0,  0.1,  0.3, 0xff7f2a, ['Motivation/action. With NE → snap behaviors.']);
+    nt('Serotonin (5-HT)',    0.8, -0.2, -0.4, 0x66a3ff, ['Irritability buffer. Rhythm/sunlight/sleep support tone.']);
+    nt('GABA',               -0.7, -0.4, -0.5, 0x7ed957, ['Main inhibitory brake. Long exhale helps GABA tone.']);
+    nt('Glutamate',           0.1,  0.7, -0.7, 0xb388ff, ['Primary excitatory. High Glut + NE = louder alarms.']);
+
+    // Proof-of-life cube (shows even if brain didn’t build)
+    const cube = new THREE.Mesh(new THREE.BoxGeometry(0.18,0.18,0.18),
+      new THREE.MeshStandardMaterial({ color:0x7aa2ff, roughness:0.4, metalness:0.0 }));
+    cube.position.set(-1.6, -0.9, 0.0); scene.add(cube);
+
+    // Picking → update panel
+    const ray = new THREE.Raycaster(), mouse = new THREE.Vector2();
+    function show(d){
+      info.innerHTML = `
+        <h2>${d.name}</h2>
+        ${d.lead ? `<p class="lead">${d.lead}</p>` : ''}
+        ${Array.isArray(d.text) ? d.text.map(p=>`<p>${p}</p>`).join('') : ''}
+        <p class="muted">Tip: long exhale (6–8s) + jaw/shoulder release lowers NE-driven tone.</p>
+      `;
+    }
+    function pulse(obj){ const o=obj.material; obj.material=matHi; setTimeout(()=>obj.material=o,200); }
+    function pick(clientX, clientY){
+      const rect = renderer.domElement.getBoundingClientRect();
+      mouse.x = ((clientX - rect.left) / rect.width) * 2 - 1;
+      mouse.y = -((clientY - rect.top) / rect.height) * 2 + 1;
+      ray.setFromCamera(mouse, camera);
+      const hit = ray.intersectObjects([cortex, stem, ...clickable], true)[0];
+      if(hit){ pulse(hit.object); show(hit.object.userData); }
+    }
+    renderer.domElement.addEventListener('click', e=> pick(e.clientX,e.clientY));
+    renderer.domElement.addEventListener('touchstart', e=>{ const t=e.touches[0]; if(t) pick(t.clientX,t.clientY); }, {passive:true});
+
+    // Cursor-driven rotation
+    let targetX=0, targetY=0;
+    stage.addEventListener('mousemove', e=>{
+      const r=stage.getBoundingClientRect(); const x=(e.clientX-r.left)/r.width-0.5; const y=(e.clientY-r.top)/r.height-0.5;
+      targetY = x*0.5; targetX = -y*0.3;
+    });
+
+    // Animate
+    function tick(){
+      cube.rotation.y += 0.02; cube.rotation.x += 0.01;
+      brain.rotation.y += 0.002 + (targetY - brain.rotation.y)*0.04;
+      brain.rotation.x += (targetX - brain.rotation.x)*0.04;
+      controls.update(); renderer.render(scene, camera); requestAnimationFrame(tick);
+    }
+    tick();
+
+    statusEl.innerHTML = '<span class="ok">OK:</span> Three.js loaded and rendering.';
+    function getCSS(v){ return new THREE.Color(getComputedStyle(document.documentElement).getPropertyValue(v).trim()); }
+  </script>
+</body>
+</html>
