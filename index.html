@@ -1,0 +1,75 @@
+<!-- HTML Embed: paste everything -->
+<div id="stage" style="min-height:560px;height:60vh;max-height:760px;border:1px dashed #cfd6e4;border-radius:12px;position:relative;background:transparent;overflow:hidden">
+  <div id="size" style="position:absolute;top:6px;right:6px;background:#fff;border:1px solid #cfd6e4;border-radius:8px;padding:2px 6px;font-size:11px;color:#2a3550;opacity:.85">-- × --</div>
+  <canvas id="c"></canvas>
+</div>
+
+<script type="module">
+  import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.161.0/build/three.module.js";
+  import { OrbitControls } from "https://cdn.jsdelivr.net/npm/three@0.161.0/examples/jsm/controls/OrbitControls.js";
+
+  const stage = document.getElementById('stage');
+  const badge = document.getElementById('size');
+  const renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('c'), antialias:true, alpha:true });
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+
+  const camera = new THREE.PerspectiveCamera(42, 1, 0.1, 100);
+  camera.position.set(0, 0.7, 3.8);
+  const scene = new THREE.Scene();
+  scene.add(new THREE.AmbientLight(0xffffff, 0.55));
+  const key = new THREE.DirectionalLight(0xffffff, 1.0); key.position.set(3,4,5); scene.add(key);
+
+  const controls = new OrbitControls(camera, renderer.domElement);
+  controls.enableDamping = true; controls.enablePan = false;
+
+  function size(){
+    const w = Math.max(stage.clientWidth, stage.offsetWidth, 800);
+    const h = Math.max(stage.clientHeight, stage.offsetHeight, 560);
+    renderer.setSize(w, h, false);
+    camera.aspect = w / h; camera.updateProjectionMatrix();
+    badge.textContent = `${Math.round(w)}×${Math.round(h)}`;
+  }
+  size(); addEventListener('resize', size);
+  let tries=0;(function poll(){ if((stage.clientWidth>0&&stage.clientHeight>0)||tries>40) return size(); tries++; setTimeout(poll,100); })();
+
+  // Proof-of-life cube
+  const cube = new THREE.Mesh(new THREE.BoxGeometry(0.18,0.18,0.18), new THREE.MeshStandardMaterial({ color:0x7aa2ff, roughness:0.4 }));
+  cube.position.set(-1.6,-0.9,0.0); scene.add(cube);
+
+  // Brain (cartoon shell + nodes)
+  const brain = new THREE.Group(); scene.add(brain);
+  const matCortex = new THREE.MeshStandardMaterial({ color:0xcfe0ff, roughness:0.6 });
+  const matWire   = new THREE.MeshBasicMaterial({ color:0x6f98ff, wireframe:true, transparent:true, opacity:0.22 });
+  const matDeep   = new THREE.MeshStandardMaterial({ color:0x9ad0ff, roughness:0.35 });
+  const cortexGeo = new THREE.SphereGeometry(1.08,64,64);
+  const cortex = new THREE.Mesh(cortexGeo, matCortex); cortex.scale.set(1.18,0.98,1.45); brain.add(cortex);
+  const cortexWire = new THREE.Mesh(cortexGeo, matWire); cortexWire.scale.copy(cortex.scale); brain.add(cortexWire);
+
+  const nodes = [];
+  function node(x,y,z,r,label){
+    const m = new THREE.Mesh(new THREE.SphereGeometry(r,24,24), matDeep);
+    m.position.set(x,y,z); m.userData = { name: label }; brain.add(m); nodes.push(m);
+  }
+  node(-0.45,-0.05,0.1,0.14,'Amygdala (L)');
+  node( 0.45,-0.05,0.1,0.14,'Amygdala (R)');
+  node( 0.00, 0.25,0.9,0.24,'PFC');
+  node( 0.00, 0.10,0.35,0.18,'ACC');
+  node(-0.35, 0.00,0.25,0.14,'Insula (L)');
+  node( 0.35, 0.00,0.25,0.14,'Insula (R)');
+  node( 0.00,-0.15,0.10,0.15,'Hypothalamus');
+  node( 0.00,-0.05,-0.20,0.20,'Basal Ganglia');
+
+  // Rotate / animate
+  let targetX=0, targetY=0;
+  stage.addEventListener('mousemove', e=>{
+    const r=stage.getBoundingClientRect(); const x=(e.clientX-r.left)/r.width-0.5; const y=(e.clientY-r.top)/r.height-0.5;
+    targetY = x*0.5; targetX = -y*0.3;
+  });
+  function tick(){
+    cube.rotation.y += 0.02; cube.rotation.x += 0.01;
+    brain.rotation.y += 0.002 + (targetY - brain.rotation.y)*0.04;
+    brain.rotation.x += (targetX - brain.rotation.x)*0.04;
+    controls.update(); renderer.render(scene, camera); requestAnimationFrame(tick);
+  }
+  tick();
+</script>
